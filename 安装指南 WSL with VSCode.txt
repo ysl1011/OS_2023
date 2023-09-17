@@ -1,0 +1,69 @@
+1）添加Windows功能，WSL、虚拟机，重启
+dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+或
+系统设置->应用->程序和功能->启用或关闭Windows功能，勾选“适用于Linux的Windows子系统”和“虚拟机平台”，确定安装，重启，再次打开若看到二者被勾选则表示安装成功
+2）下载安装适用于x64计算机的WSL2 Linux内核更新包
+https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi
+3）将WSL 2设置为默认版本
+wsl --set-default-version 2
+4）Microsoft Store，搜索Linux发行版，如Ubuntu 22.04，点击“获取”，下载完成后，按钮变成“启动”，不要点击，开始菜单也出现Ubuntu 22.04，同样不点击，保持其未初次运行的状态
+5）改变虚拟机的默认安装路径
+进入C盘WindowsApps文件夹，看到若干CanonicalGroupLimited开头的文件夹，逐个检查，如果其中包含ubuntu2204.exe，则表示该文件夹就是刚才Microsoft Store下载的Linux，把该文件夹的所有内容复制到期望的目录，例如D:\Ubuntu2204
+6）安装（即初次运行）虚拟机
+进入虚拟机安装目录（即前述D:\Ubuntu2204），双击ubuntu2204.exe，系统开始初始化，正常情况下会询问创建账号密码，完成后文件夹中会出现一个尺寸较大的文件，即虚拟机镜像
+7）删除默认路径的下载
+步骤4后，开始菜单出现Ubuntu 22.04，即指向默认的下载路径，只是未初次运行完成初始化，鼠标右击，选择卸载，再次进入C盘WindowsApps文件夹，看到先前的CanonicalGroupLimited开头的文件夹都已消失
+8）使用
+进入安装目录，双击ubuntu2204.exe，则启动虚拟机，并看到命令窗口
+尽早执行一次sudo apt-get update，否则将来通过apt-get安装软件容易出问题
+关闭命令窗口可能导致虚拟机关闭，再次双击ubuntu2204.exe可重新打开命令窗口，多次双击亦可打开多个命令窗口
+wsl --list --verbose，可查看虚拟机状态，包括发行版名称、是否运行等
+wsl --terminate <发行版名称>，可关闭某个虚拟机
+wsl --shutdown，可关闭所有虚拟机
+wsl --unregister <发行版名称>，可删除某个虚拟机（删了就无法恢复）
+Windows文件资源管理器中输入\\wsl$，可看到虚拟机文件夹
+Linux中，访问/mnt/c、/mnt/d等，可访问Windows的C盘、D盘
+
+
+
+常见问题
+1）（初次或再次）运行虚拟机报错：参考的对象类型不支持尝试的操作
+与winsock有关，须修改注册表，运行regedit，
+HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\WinSock2\Parameters\AppId_Catalog
+鼠标右击AppId_Catalog，新建“项”，命名为0408F7A3，然后点击此项，右边暂时空白
+新建“字符串”，命名为AppFullPath，然后修改其值为C:\Windows\System32\wsl.exe
+新建“DWORD（32位）”，命名为PermittedLspCategories，然后修改其值为80000000（十六进制）
+2）步骤6初次运行虚拟机，直接以root登录，未询问创建账号
+创建账号：adduser <用户名>，命令执行过程中会询问密码等
+将新用户加入sudo群组：usermod -aG sudo <用户名>
+将新用户设定为Linux默认登录账号：vi /etc/wsl.conf，添加以下内容，然后Esc，输入:wq，保存退出
+[user]
+default=<用户名>
+回到Windows的命令窗口，通过wsl命令关闭虚拟机，再重新运行虚拟机，即以新建用户登录
+3）步骤4后不小心运行了虚拟机，使其安装在默认路径上（C盘），希望转移到D盘
+查看发行版本：wsl --list --verbose
+导出发行版为tar文件到D盘：wsl --export <发行版名称> D:\wsl-ubuntu22.04.tar
+注销当前发行版：wsl --unregister <发行版名称>
+重新导入并安装虚拟机在D:\Ubuntu：wsl --import <发行版名称> D:\Ubuntu d:\wsl-ubuntu22.04.tar --version 2
+设置默认登录用户为安装时用户名：见常见问题2
+删除tar文件（可选）：del D:\wsl-ubuntu20.04.tar
+
+
+
+VSCode
+1）安装WSL插件，左边出现“远程资源管理器”栏目
+2）点击进入“远程资源管理器”栏目，可看到虚拟机列表
+3）点击连接虚拟机，VSCode新建窗口，左下角显示连接到虚拟机，资源管理器可打开虚拟机的文件夹
+4）初次连接会在虚拟机的$HOME/.vscode-server下安装一些东西并运行，并可能出现报错：wsl无法获取远程环境，关闭虚拟机并重新打开，然后VSCode重新连接即可
+5）连接虚拟机后，VSCode在Windows下的插件无法使用，需要重装，会被安装到虚拟机的$HOME/.vscode-server/extensions下，此处必须安装微软提供的“C/C++”插件
+6）虚拟机下安装C++编译工具，sudo apt-get install build-essential gdb，确认安装：whereis g++，whereis gdb
+7）在C++项目文件夹下，配置c_cpp_properties.json、launch.json、tasks.json
+8）如果报文件访问权限错误，permission denied，可通过ls -l查看文件夹所属用户，并通过sudo chown -R username /directory_path把文件夹归属为本用户
+
+
+
+参考文档
+1）微软文档，https://learn.microsoft.com/zh-cn/windows/wsl/install-manual
+2）自定义路径安装及常用命令，https://blog.csdn.net/weixin_41973774/article/details/117223425
+3）安装及修改默认安装目录，https://blog.csdn.net/qq_43556844/article/details/120602402
